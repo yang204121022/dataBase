@@ -3,10 +3,11 @@
 namespace Irmyang\Database;
 
 
+use support\view\Raw;
 use Webman\Http\Request;
 use Webman\Http\Response;
 use Tinywan\Storage\Storage;//文件存储
-
+use Webman\Config;
 
 class Controller
 {
@@ -33,23 +34,152 @@ class Controller
      */
     public function save(Request $request)
     {
-        $id=$request->input('id');
+        $id=$request->input('id',0);
         $data=$request->all();
-        if(empty($data['id']))
+        if($id)
+        {
+            $item=$this->model->find($id);
+            if(!$item) return self::json(['code'=>1,'msg'=>$this->model->msg]);
+            if(!$item->setSave($data)) return self::json(['code'=>1,'msg'=>$this->model->msg]);
+        }
+        else
         {
             $item=$this->model->setSave($data);
             if(!$item) return self::json(['code'=>1,'msg'=>$this->model->msg]);
         }
-        else
-        {
-            $item=$this->model->find($id);
-            if(!$item) return self::json(['code'=>1,'msg'=>$this->model->msg]);
-            if(!$item->setSave($data)) return self::json(['code'=>1,'msg'=>$item->msg]);
-        }
         return self::json(['code'=>0,'data'=>$item]);
     }
 
+    /**
+     * 获取详情
+     * @param $id
+     * @return void
+     */
+    public function getInfo(Request $request)
+    {
+        $id=$request->input('id',0);
+        $item = $this->model->find($id);
+        if($item)
+        {
+            return self::json(['code'=>0, 'msg'=>'ok','data'=> $item]);
+        }
+        else
+        {
+            return self::json(['code'=>1, 'msg'=>$this->model->msg]);
+        }
+    }
 
+    /**
+     * @title 排序移动
+     * @method get
+     * @param int id 内容ID
+     * @param int [type] 移动类型
+     */
+    function moveSort(Request $request){
+        $id=$request->input('id',0);
+        $type=$request->input('type',false);
+        $data=$this->model->moveSort($id,$type);
+        if(!$data) return self::json(['code'=>1,'msg'=>$this->model->msg]);
+        return self::json(['code'=>0,'data'=>$data]);
+    }
+
+    /**
+     * 删除
+     * @param Request $request
+     * @return Response
+     */
+    public function delete(Request $request): Response
+    {
+        $id=$request->post('id',0);
+        if(is_array($id))
+        {
+            $model=$this->model->whereIn('id',$id);
+        }
+        else
+        {
+            $model=$this->model->where('id',$id);
+        }
+        if($this->model->is_delete) {
+            $model->update(['is_delete' => 1]);
+        }
+        else
+        {
+            $lists=$model->get();
+            foreach($lists as $k=>$v)
+            {
+                $v->delete();
+            }
+        }
+        return self::json(['code' => 0, 'msg'=>'ok']);
+    }
+
+
+    public function getTempPath(\support\Request $request)
+    {
+        $plugin_name=config('plugin.irmyang.database.app.plugin_name');
+        $path=$request->path();
+        $path=substr($path,strpos($path,$plugin_name)+strlen($plugin_name)+1);
+        if(!file_exists(base_path().'/plugin/'.$plugin_name.'/app/view/'.$path.'.html')){
+            return $request->action;
+        }
+        return $path;
+    }
+
+    public function getList(Request $request)
+    {
+        return new \support\Response(200, [], Raw::render($this->getTempPath($request), [], null));
+    }
+    public function main(Request $request)
+    {
+        return new Response(200, [], Raw::render($this->getTempPath($request), [], null));
+    }
+
+    public function fieldShowList(Request $request)
+    {
+        return new Response(200, [], Raw::render('dataBase/tableField/getList', [], null));
+    }
+    /**
+     * @title 获取预览地址
+     * @method get
+     * @param int id 内容ID
+     * @success {
+    status:1
+    }
+     */
+    function getViewUrl(Request $request){
+        $id=$request->input('id',0);
+        $item=$this->model->find($id);
+        if(!$item) return self::json(['code'=>1,'msg'=>$this->model->msg]);
+        $item->view_url=$item->getUrl();
+        if(method_exists($this->model,'getConfig'))
+        {
+            $status=get_class($this->model)::$pub_status;
+            $config=$this->model->getConfig();
+            if(isset($config['static_time']) && $config['static_time']['val'] && $item->status>=$status)
+            {
+                $this->model->createView($item->id);
+            }
+        }
+        session(['view_item'=>['id'=>$id]]);
+        return self::json(['code'=>0,'data'=>['url'=>$item->view_url]]);
+    }
+    /**
+     * @title 设置配置
+     * @method get
+     * @return response
+     */
+    function setConfig(Request $request){
+        return $this->model->setConfig(true,$request->all());
+    }
+    /**
+     * @title 获取配置
+     * @method get
+     * @return response
+     */
+    function getConfig(Request $request){
+        $config=$this->model->getConfig();
+        return self::json(['code'=>0,'data'=>$config]);
+    }
     /**
      * @title 获取表字段结构
      * @method get
@@ -60,7 +190,7 @@ class Controller
         $is_update=$request->get('is_update',0);
         $data=$this->model->getTableInfo($is_update,$this->model);
         if(!$data) return self::json(['code'=>1,'msg'=>$this->model->msg]);
-        $data['admin_path']=config('plugin.irmyang.database.app.admin_path');
+        $data['admin_path']=Config::get('plugin.irmyang.database.app.admin_path','');
         return self::json(['code'=>0,'data'=>$data]);
     }
     /**

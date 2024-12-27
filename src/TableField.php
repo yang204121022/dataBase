@@ -31,7 +31,7 @@ class TableField extends Base
      */
     function getFieldList($object='')
     {
-        $table_name=$object->getTable();
+        $table_name=$object->getConnection()->getTablePrefix().$object->getTable();
         $table_db=new Table;
         $connection=$this->getConnectionName();
         $table_db=$table_db->setConnection($connection);
@@ -54,13 +54,13 @@ class TableField extends Base
             $default_lists[$v['field']]=$v;
         }
         //字段表
-        $table=$this->getTable();
+        $table=$this->getConnection()->getTablePrefix().$this->getTable();
         if(!$table_db->isTable($table,$this))
         {
             $this->setAttributes('msg',$table_db->msg);
             return false;
         }
-
+        $sort=0;
         $lists=$this->where('table_name',$table_name)->orderBy('sort','ASC')->get();
         if($lists)
         {
@@ -75,6 +75,7 @@ class TableField extends Base
                 {
                     unset($table_field_lists[$v->field]);
                 }
+                $sort=$v->sort;
             }
         }
         if($table_field_lists)
@@ -122,6 +123,8 @@ class TableField extends Base
                     $db->admin_list_show=1;//列表展示
                     $db->admin_edit=1;//修改
                 }
+                $sort++;
+                $db->sort=$sort;
                 $db->save();
             }
             $lists=$this->where('table_name',$table_name)->orderBy('sort','ASC')->get();
@@ -398,17 +401,17 @@ class TableField extends Base
         $field_lists[]=['field'=>'is_multiple','field_length'=>10,'field_decimal'=>0,'default'=>0,'comment'=>'多选','field_type'=>'int'];
 
         $field_lists[]=['field'=>'null','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'允许空','field_type'=>'switch'];
-        $field_lists[]=['field'=>'admin_list_show','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'列表展示','field_type'=>'switch'];
+        $field_lists[]=['field'=>'admin_list_show','field_length'=>2,'field_decimal'=>0,'default'=>1,'comment'=>'列表展示','field_type'=>'switch'];
         $field_lists[]=['field'=>'admin_list_fold','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'折叠展示','field_type'=>'switch'];
         $field_lists[]=['field'=>'admin_list_custom','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'自定义','field_type'=>'switch'];
         $field_lists[]=['field'=>'admin_footer_edit','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'底部修改','field_type'=>'switch'];
 
         $field_lists[]=['field'=>'admin_search','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'搜索','field_type'=>'switch'];
         $field_lists[]=['field'=>'admin_list','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'列表修改','field_type'=>'switch'];
-        $field_lists[]=['field'=>'admin_add_show','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'添加展示','field_type'=>'switch'];
-        $field_lists[]=['field'=>'admin_edit_show','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'修改展示','field_type'=>'switch'];
-        $field_lists[]=['field'=>'admin_add','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'添加修改','field_type'=>'switch'];
-        $field_lists[]=['field'=>'admin_edit','field_length'=>2,'field_decimal'=>0,'default'=>0,'comment'=>'修改修改','field_type'=>'switch'];
+        $field_lists[]=['field'=>'admin_add_show','field_length'=>2,'field_decimal'=>0,'default'=>1,'comment'=>'添加展示','field_type'=>'switch'];
+        $field_lists[]=['field'=>'admin_edit_show','field_length'=>2,'field_decimal'=>0,'default'=>1,'comment'=>'修改展示','field_type'=>'switch'];
+        $field_lists[]=['field'=>'admin_add','field_length'=>2,'field_decimal'=>0,'default'=>1,'comment'=>'添加修改','field_type'=>'switch'];
+        $field_lists[]=['field'=>'admin_edit','field_length'=>2,'field_decimal'=>0,'default'=>1,'comment'=>'修改修改','field_type'=>'switch'];
         $field_lists[]=['field'=>'sort','field_length'=>10,'field_decimal'=>0,'default'=>0,'comment'=>'排序','field_type'=>'int'];
         return $field_lists;
     }

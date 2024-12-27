@@ -12,7 +12,9 @@ class Base extends Model
     protected $data_is_add=true;//允许添加
     protected $data_is_edit=true;//允许修改
     protected $data_field_edit=true;//允许修改字段
+    protected $data_config_edit=false;//配置
     protected $data_is_delete=true;//允许删除
+    protected $data_is_view=false;//预览
     /**
      * @var string
      */
@@ -119,8 +121,10 @@ class Base extends Model
 
         //字段编辑
         $data['data_field_edit']=$this->data_field_edit;
+        $data['data_config_edit']=$this->data_config_edit;
         $data['data_is_add']=$this->data_is_add;
         $data['data_is_edit']=$this->data_is_edit;
+        $data['data_is_view']=$this->data_is_view;
         $data['data_is_delete']=$this->data_is_delete;
 
         Cache::set($key,$data);
@@ -128,10 +132,10 @@ class Base extends Model
     }
     /** @title 添加额外字段
      *
-     * @param    array  param  查询字段
-     * @return   array
+     * @param object  $item  字段
+     * @return object
      */
-    function addExtrFields($item=[])
+    function addExtrFields(object $item)
     {
         return $item;
     }
@@ -155,7 +159,6 @@ class Base extends Model
         //自动添加排序
         if($this->is_sort) $data[$this->sort_key]=$this->getSortValue($data);
 
-        $model=clone $this;
         $num=0;
         $table_config=$this->getTableInfo(false,$this);
         foreach($table_config['lists'] as $v)
@@ -171,7 +174,7 @@ class Base extends Model
                 $this->setAttributes('msg',$v->comment.'禁止为空');
                 return false;
             }
-            $model->$field=$data[$field];
+            $this->$field=isset($data[$field]) ? $data[$field] : $v->field_default;
             $num++;
         }
         if(!$num)
@@ -179,8 +182,8 @@ class Base extends Model
             $this->setAttributes('msg','无符合条件数据');
             return false;
         }
-        $model->save();
-        return $model;
+        $this->save();
+        return $this;
     }
     /** @title 批量添加
      *
@@ -377,29 +380,9 @@ class Base extends Model
                         }
                         break;
                     case 'modular-file'://模块
-                        if(isset($param[$v->field]))
+                        if(!empty($param[$v->field]))
                         {
-                            if(empty($param[$v->field]))
-                            {
-                                if(empty($param[$v->field.'_all']))
-                                {
-                                    if($this->is_sort)
-                                    {
-                                        $model=$model->where($v->field,0);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                $model=$model->where($v->field,$param[$v->field]);
-                            }
-                        }
-                        else
-                        {
-                            if($this->is_sort)
-                            {
-                                $model=$model->where($v->field,0);
-                            }
+                            $model=$model->where($v->field,$param[$v->field]);
                         }
                         break;
                     case 'modular-more'://模块多联
@@ -489,7 +472,7 @@ class Base extends Model
                     $model=new $v['model'];
                     $key=$model->getProtectedValueByKey('primaryKey');
                     $v['field'][]=$key;
-                    $_lists=$model->select($v['field'])->whereIn($model->primaryKey,$v['ids'])->get();
+                    $_lists=$model->select($v['field'])->whereIn($key,$v['ids'])->get();
                     foreach($_lists as $k2=>$v2)
                     {
                         $v['ids'][$v2->$key]=$v2;
